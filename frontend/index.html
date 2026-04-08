@@ -1095,12 +1095,9 @@
 /* ─────────────────────────────────────────────────────────
    CONFIG
 ───────────────────────────────────────────────────────── */
-// ⚠️ IMPORTANT: Replace the URL below with YOUR actual Render backend URL
-// Go to https://dashboard.render.com → your backend service → copy the URL
-// It looks like: https://YOUR-SERVICE-NAME.onrender.com
 const API = window.location.hostname === "localhost"
   ? "http://localhost:5000/api"
-  : "https://trustsphere-backend.onrender.com/api";
+  : "https://trustsphere-backend.onrender.com/api";  
 let currentUser = null;
 let currentRating = 0;
 let allCollabs = [];
