@@ -1095,7 +1095,9 @@
 /* ─────────────────────────────────────────────────────────
    CONFIG
 ───────────────────────────────────────────────────────── */
-const API = 'https://trustnet-backend.onrender.com/api';
+const API = window.location.hostname === "localhost"
+  ? "http://localhost:5000/api"
+  : "https://trustsphere.onrender.com/api";
 let currentUser = null;
 let currentRating = 0;
 let allCollabs = [];
