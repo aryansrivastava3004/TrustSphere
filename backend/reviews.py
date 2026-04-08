@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 import sqlite3
 from config import Config
-from utils.auth_middleware import token_required
+from auth_middleware import token_required  # Fixed: flat import, not utils.auth_middleware
 
 review_bp = Blueprint("reviews", __name__)
 
@@ -17,20 +17,25 @@ def add_review():
     if not (1 <= rating <= 5):
         return jsonify({"error": "Rating must be between 1 and 5"}), 400
 
+    # Prevent self-review
+    if int(data["user_id"]) == request.user["id"]:
+        return jsonify({"error": "You cannot review yourself"}), 400
+
     conn = sqlite3.connect(Config.DATABASE_PATH)
     cur = conn.cursor()
 
-    cur.execute("""
-    INSERT INTO reviews (reviewer_id, reviewed_user_id, rating, comment)
-    VALUES (?, ?, ?, ?)
-    """, (request.user["id"], data["user_id"], rating, data["comment"]))
-
+    # FIX: Check user exists BEFORE inserting the review
     cur.execute("SELECT rating, total_reviews FROM users WHERE id=?", (data["user_id"],))
     user = cur.fetchone()
 
     if not user:
         conn.close()
         return jsonify({"error": "User not found"}), 404
+
+    cur.execute("""
+    INSERT INTO reviews (reviewer_id, reviewed_user_id, rating, comment)
+    VALUES (?, ?, ?, ?)
+    """, (request.user["id"], data["user_id"], rating, data["comment"]))
 
     new_total = user[1] + 1
     new_rating = ((user[0] * user[1]) + rating) / new_total

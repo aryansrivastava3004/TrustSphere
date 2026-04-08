@@ -55,7 +55,6 @@ def login():
     if not bcrypt.checkpw(data["password"].encode(), user[4].encode()):
         return jsonify({"error": "Wrong password"}), 401
 
-    # jwt.encode in PyJWT >= 2.x returns str directly
     token = jwt.encode(
         {
             "id": user[0],

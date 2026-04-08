@@ -839,23 +839,24 @@
       <div class="sidebar-user-name" id="sb-name">—</div>
       <div class="sidebar-user-role" id="sb-role">—</div>
     </div>
+    <!-- FIX: Added data-page attribute to each nav item for reliable active-state matching -->
     <nav class="sidebar-nav">
-      <div class="nav-item active" onclick="navigate('dashboard')">
+      <div class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')">
         <span class="nav-icon">◈</span> Dashboard
       </div>
-      <div class="nav-item" onclick="navigate('collaborators')">
+      <div class="nav-item" data-page="collaborators" onclick="navigate('collaborators')">
         <span class="nav-icon">◎</span> Collaborators
       </div>
-      <div class="nav-item" onclick="navigate('requests')">
+      <div class="nav-item" data-page="requests" onclick="navigate('requests')">
         <span class="nav-icon">⇄</span> Requests
       </div>
-      <div class="nav-item" onclick="navigate('reviews')">
+      <div class="nav-item" data-page="reviews" onclick="navigate('reviews')">
         <span class="nav-icon">★</span> Reviews
       </div>
-      <div class="nav-item" onclick="navigate('disputes')">
+      <div class="nav-item" data-page="disputes" onclick="navigate('disputes')">
         <span class="nav-icon">⚑</span> Disputes
       </div>
-      <div class="nav-item" onclick="navigate('leaderboard')">
+      <div class="nav-item" data-page="leaderboard" onclick="navigate('leaderboard')">
         <span class="nav-icon">⬡</span> Leaderboard
       </div>
     </nav>
@@ -1022,7 +1023,7 @@
     <div class="modal-title">Leave a Review</div>
     <div id="modal-rev-alert" class="alert alert-error"></div>
     <div class="field">
-      <label>Collaborator</label>
+      <label>User</label>
       <div class="field-input">
         <select id="rev-user-select">
           <option value="">— Select user —</option>
@@ -1188,13 +1189,17 @@ async function doRegister() {
     role: document.getElementById('reg-role').value,
     password: document.getElementById('reg-pass').value
   };
-  if (!payload.name || !payload.user_id || !payload.password) {
+  // FIX: Validate all required fields including bio
+  if (!payload.name || !payload.user_id || !payload.bio || !payload.password) {
     showAlert('reg-alert', 'Please fill all required fields'); return;
+  }
+  if (payload.password.length < 6) {
+    showAlert('reg-alert', 'Password must be at least 6 characters'); return;
   }
   try {
     await apiFetch('/auth/register', { method: 'POST', body: JSON.stringify(payload) });
+    // FIX: showAlert handles visibility — no need for extra style.display call
     showAlert('reg-success', '✓ Account created — you can now login!', 'success');
-    document.getElementById('reg-success').style.display = 'block';
     setTimeout(() => switchTab('login'), 1500);
   } catch (e) { showAlert('reg-alert', e.message); }
 }
@@ -1223,10 +1228,8 @@ async function init() {
   const token = getToken();
   if (!token) return;
   try {
-    // decode token to get basic user info
     const payload = JSON.parse(atob(token.split('.')[1]));
     if (payload.exp * 1000 < Date.now()) { localStorage.removeItem('token'); return; }
-    // Fetch full user data
     const user = await apiFetch(`/users/${payload.id}`);
     currentUser = user;
     bootApp();
@@ -1235,6 +1238,7 @@ async function init() {
 
 /* ─────────────────────────────────────────────────────────
    NAVIGATION
+   FIX: Use data-page attribute for reliable active-state matching
 ───────────────────────────────────────────────────────── */
 const PAGE_TITLES = {
   dashboard: 'Dashboard',
@@ -1249,16 +1253,14 @@ function navigate(page) {
   document.querySelectorAll('[id^="page-"]').forEach(p => p.classList.add('hidden'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById(`page-${page}`).classList.remove('hidden');
-  document.querySelectorAll('.nav-item').forEach(n => {
-    if (n.textContent.trim().toLowerCase().startsWith(page.toLowerCase().slice(0,4)))
-      n.classList.add('active');
-  });
-  document.getElementById('topbar-title').textContent = PAGE_TITLES[page] || page;
 
-  // Close sidebar on mobile
+  // FIX: Match by data-page attribute instead of fragile text prefix
+  const activeNav = document.querySelector(`.nav-item[data-page="${page}"]`);
+  if (activeNav) activeNav.classList.add('active');
+
+  document.getElementById('topbar-title').textContent = PAGE_TITLES[page] || page;
   document.getElementById('sidebar').classList.remove('open');
 
-  // Load page data
   if (page === 'dashboard') loadDashboard();
   else if (page === 'requests') loadRequests();
   else if (page === 'reviews') loadMyReviews();
@@ -1274,7 +1276,6 @@ function toggleSidebar() {
    DASHBOARD
 ───────────────────────────────────────────────────────── */
 async function loadDashboard() {
-  // Refresh user data
   try { currentUser = await apiFetch(`/users/${currentUser.id}`); } catch {}
 
   const u = currentUser;
@@ -1282,7 +1283,6 @@ async function loadDashboard() {
   const rating = u.rating || 0;
   const total = u.total_reviews || 0;
 
-  // Stat cards
   document.getElementById('dash-stats').innerHTML = `
     <div class="stat-card">
       <div class="stat-label">Trust Score</div>
@@ -1301,7 +1301,6 @@ async function loadDashboard() {
     </div>
   `;
 
-  // Trust ring
   const pct = score / 100;
   const circ = 2 * Math.PI * 44;
   const dash = pct * circ;
@@ -1328,7 +1327,6 @@ async function loadDashboard() {
     </div>
   `;
 
-  // Recent reviews
   try {
     const revs = await apiFetch(`/reviews/user/${u.id}`);
     if (!revs.length) {
@@ -1441,17 +1439,19 @@ async function loadRequests() {
   } catch (e) { showToast(e.message); }
 }
 
+// FIX: Only compare by ID — name comparison was unreliable
 function requestActions(r) {
-  const isMeCollab = r.collaborator_id === currentUser.id || r.collaborator_name === currentUser.name;
-  const isPending = r.status === 'pending';
-  if (isMeCollab && isPending) {
+  const isMeCollab = r.collaborator_id === currentUser.id;
+  const isMeSeeker = r.seeker_id === currentUser.id;
+
+  if (isMeCollab && r.status === 'pending') {
     return `
       <div class="flex gap-2">
         <button class="btn btn-success btn-sm" onclick="updateReq(${r.id},'accepted')">Accept</button>
         <button class="btn btn-danger btn-sm" onclick="updateReq(${r.id},'rejected')">Reject</button>
       </div>`;
   }
-  if (r.status === 'accepted') {
+  if ((isMeCollab || isMeSeeker) && r.status === 'accepted') {
     return `<button class="btn btn-ghost btn-sm" onclick="updateReq(${r.id},'completed')">✓ Mark Done</button>`;
   }
   return '<span class="text-muted mono" style="font-size:11px;">—</span>';

@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 import sqlite3
 from config import Config
-from utils.auth_middleware import token_required
+from auth_middleware import token_required  # Fixed: flat import, not utils.auth_middleware
 
 request_bp = Blueprint("requests", __name__)
 
@@ -13,8 +13,18 @@ def create_request():
     if not data or not all(k in data for k in ("collaborator_id", "service", "price")):
         return jsonify({"error": "Missing fields"}), 400
 
+    # Prevent requesting yourself
+    if int(data["collaborator_id"]) == request.user["id"]:
+        return jsonify({"error": "You cannot send a request to yourself"}), 400
+
     conn = sqlite3.connect(Config.DATABASE_PATH)
     cur = conn.cursor()
+
+    # Verify collaborator exists
+    cur.execute("SELECT id FROM users WHERE id=? AND role='collaborator'", (data["collaborator_id"],))
+    if not cur.fetchone():
+        conn.close()
+        return jsonify({"error": "Collaborator not found"}), 404
 
     cur.execute("""
     INSERT INTO requests (seeker_id, collaborator_id, service, price)
@@ -58,25 +68,43 @@ def update_request(id):
     if not data or "status" not in data:
         return jsonify({"error": "Missing status"}), 400
 
-    allowed_statuses = ["pending", "accepted", "rejected", "completed"]
-    if data["status"] not in allowed_statuses:
-        return jsonify({"error": f"Status must be one of {allowed_statuses}"}), 400
-
     conn = sqlite3.connect(Config.DATABASE_PATH)
     cur = conn.cursor()
 
-    # Only the collaborator or seeker involved can update
-    cur.execute("SELECT seeker_id, collaborator_id FROM requests WHERE id=?", (id,))
+    cur.execute("SELECT seeker_id, collaborator_id, status FROM requests WHERE id=?", (id,))
     req = cur.fetchone()
     if not req:
         conn.close()
         return jsonify({"error": "Request not found"}), 404
 
-    if request.user["id"] not in (req[0], req[1]):
-        conn.close()
-        return jsonify({"error": "Unauthorized"}), 403
+    seeker_id, collaborator_id, current_status = req
+    user_id = request.user["id"]
+    new_status = data["status"]
 
-    cur.execute("UPDATE requests SET status=? WHERE id=?", (data["status"], id))
+    # FIX: Role-based status transitions
+    # Collaborator can accept or reject a pending request
+    if new_status in ("accepted", "rejected"):
+        if user_id != collaborator_id:
+            conn.close()
+            return jsonify({"error": "Only the collaborator can accept or reject requests"}), 403
+        if current_status != "pending":
+            conn.close()
+            return jsonify({"error": "Only pending requests can be accepted or rejected"}), 400
+
+    # Either party can mark as completed once accepted
+    elif new_status == "completed":
+        if user_id not in (seeker_id, collaborator_id):
+            conn.close()
+            return jsonify({"error": "Unauthorized"}), 403
+        if current_status != "accepted":
+            conn.close()
+            return jsonify({"error": "Only accepted requests can be marked as completed"}), 400
+
+    else:
+        conn.close()
+        return jsonify({"error": "Invalid status. Allowed: accepted, rejected, completed"}), 400
+
+    cur.execute("UPDATE requests SET status=? WHERE id=?", (new_status, id))
     conn.commit()
     conn.close()
 

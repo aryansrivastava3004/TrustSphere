@@ -6,14 +6,14 @@ app = Flask(__name__)
 app.config.from_object(Config)
 CORS(app)
 
-# Import routes
-from routes.auth import auth_bp
-from routes.reviews import review_bp
-from routes.requests import request_bp
-from routes.disputes import dispute_bp
-from routes.users import user_bp
+# Import routes (flat structure — no routes/ subfolder needed)
+from auth import auth_bp
+from reviews import review_bp
+from collab_requests import request_bp
+from disputes import dispute_bp
+from users import user_bp
 
-# Register routes
+# Register blueprints
 app.register_blueprint(auth_bp, url_prefix="/api/auth")
 app.register_blueprint(review_bp, url_prefix="/api/reviews")
 app.register_blueprint(request_bp, url_prefix="/api/requests")
