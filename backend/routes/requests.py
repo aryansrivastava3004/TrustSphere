@@ -1,34 +1,41 @@
 from flask import Blueprint, request, jsonify
 import sqlite3
+from config import Config
+from utils.auth_middleware import token_required
 
-review_bp = Blueprint("reviews", __name__)
+request_bp = Blueprint("requests", __name__)
 
-@review_bp.route("/add", methods=["POST"])
-def add_review():
+
+@request_bp.route("/create", methods=["POST"])
+@token_required
+def create_request():
     data = request.json
 
-    conn = sqlite3.connect("database.db")
+    conn = sqlite3.connect(Config.DATABASE_PATH)
     cur = conn.cursor()
 
     cur.execute("""
-    INSERT INTO reviews (reviewer_id, reviewed_user_id, rating, comment)
+    INSERT INTO requests (seeker_id, collaborator_id, service, price)
     VALUES (?, ?, ?, ?)
-    """, (data["reviewer_id"], data["user_id"], data["rating"], data["comment"]))
-
-    # UPDATE TRUST
-    cur.execute("SELECT rating, total_reviews FROM users WHERE id=?", (data["user_id"],))
-    user = cur.fetchone()
-
-    new_reviews = user[1] + 1
-    new_rating = ((user[0] * user[1]) + data["rating"]) / new_reviews
-    trust_score = new_rating * 20
-
-    cur.execute("""
-    UPDATE users SET rating=?, total_reviews=?, trust_score=?
-    WHERE id=?
-    """, (new_rating, new_reviews, trust_score, data["user_id"]))
+    """, (request.user["id"], data["collaborator_id"], data["service"], data["price"]))
 
     conn.commit()
     conn.close()
 
-    return jsonify({"msg": "Review added"})
+    return jsonify({"msg": "Request sent"})
+
+
+@request_bp.route("/update/<int:id>", methods=["POST"])
+@token_required
+def update_request(id):
+    data = request.json
+
+    conn = sqlite3.connect(Config.DATABASE_PATH)
+    cur = conn.cursor()
+
+    cur.execute("UPDATE requests SET status=? WHERE id=?", (data["status"], id))
+
+    conn.commit()
+    conn.close()
+
+    return jsonify({"msg": "Request updated"})

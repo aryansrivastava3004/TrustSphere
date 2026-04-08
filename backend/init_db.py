@@ -1,9 +1,9 @@
 import sqlite3
+from config import Config
 
-conn = sqlite3.connect("database.db")
+conn = sqlite3.connect(Config.DATABASE_PATH)
 cur = conn.cursor()
 
-# USERS
 cur.execute("""
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -18,18 +18,17 @@ CREATE TABLE IF NOT EXISTS users (
 )
 """)
 
-# REVIEWS
 cur.execute("""
 CREATE TABLE IF NOT EXISTS reviews (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     reviewer_id INTEGER,
     reviewed_user_id INTEGER,
     rating INTEGER,
-    comment TEXT
+    comment TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )
 """)
 
-# REQUESTS
 cur.execute("""
 CREATE TABLE IF NOT EXISTS requests (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -41,14 +40,15 @@ CREATE TABLE IF NOT EXISTS requests (
 )
 """)
 
-# DISPUTES
 cur.execute("""
 CREATE TABLE IF NOT EXISTS disputes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     request_id INTEGER,
     user1_id INTEGER,
     user2_id INTEGER,
-    reason TEXT
+    reason TEXT,
+    status TEXT DEFAULT 'open',
+    admin_decision TEXT
 )
 """)
 

@@ -7,25 +7,16 @@ from config import Config
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = None
-
-        # Get token from headers
-        if "Authorization" in request.headers:
-            token = request.headers["Authorization"]
+        token = request.headers.get("Authorization")
 
         if not token:
-            return jsonify({"error": "Token is missing"}), 401
+            return jsonify({"error": "Token missing"}), 401
 
         try:
-            # Decode token
             data = jwt.decode(token, Config.JWT_SECRET, algorithms=["HS256"])
-            request.user = data  # attach user info to request
-
-        except jwt.ExpiredSignatureError:
-            return jsonify({"error": "Token expired"}), 401
-
-        except jwt.InvalidTokenError:
-            return jsonify({"error": "Invalid token"}), 401
+            request.user = data
+        except:
+            return jsonify({"error": "Invalid or expired token"}), 401
 
         return f(*args, **kwargs)
 

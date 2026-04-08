@@ -5,72 +5,68 @@ from config import Config
 user_bp = Blueprint("users", __name__)
 
 
-# -------------------------------
-# GET ALL USERS
-# -------------------------------
 @user_bp.route("/", methods=["GET"])
 def get_users():
-    try:
-        conn = sqlite3.connect(Config.DATABASE_PATH)
-        conn.row_factory = sqlite3.Row
-        cur = conn.cursor()
+    conn = sqlite3.connect(Config.DATABASE_PATH)
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
 
-        cur.execute("SELECT * FROM users")
-        users = [dict(row) for row in cur.fetchall()]
+    cur.execute("SELECT * FROM users")
+    users = [dict(row) for row in cur.fetchall()]
 
-        conn.close()
-
-        return jsonify(users)
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    conn.close()
+    return jsonify(users)
 
 
-# -------------------------------
-# GET SINGLE USER PROFILE
-# -------------------------------
 @user_bp.route("/<int:user_id>", methods=["GET"])
 def get_user(user_id):
-    try:
-        conn = sqlite3.connect(Config.DATABASE_PATH)
-        conn.row_factory = sqlite3.Row
-        cur = conn.cursor()
+    conn = sqlite3.connect(Config.DATABASE_PATH)
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
 
-        cur.execute("SELECT * FROM users WHERE id=?", (user_id,))
-        user = cur.fetchone()
+    cur.execute("SELECT * FROM users WHERE id=?", (user_id,))
+    user = cur.fetchone()
 
-        conn.close()
+    conn.close()
 
-        if not user:
-            return jsonify({"error": "User not found"}), 404
+    if not user:
+        return jsonify({"error": "User not found"}), 404
 
-        return jsonify(dict(user))
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    return jsonify(dict(user))
 
 
-# -------------------------------
-# GET COLLABORATORS (SELLERS)
-# -------------------------------
 @user_bp.route("/collaborators", methods=["GET"])
 def get_collaborators():
-    try:
-        conn = sqlite3.connect(Config.DATABASE_PATH)
-        conn.row_factory = sqlite3.Row
-        cur = conn.cursor()
+    conn = sqlite3.connect(Config.DATABASE_PATH)
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
 
-        cur.execute("""
-        SELECT * FROM users
-        WHERE role='collaborator'
-        ORDER BY trust_score DESC
-        """)
+    cur.execute("""
+    SELECT * FROM users
+    WHERE role='collaborator'
+    ORDER BY trust_score DESC
+    """)
 
-        users = [dict(row) for row in cur.fetchall()]
+    users = [dict(row) for row in cur.fetchall()]
 
-        conn.close()
+    conn.close()
+    return jsonify(users)
 
-        return jsonify(users)
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+@user_bp.route("/top", methods=["GET"])
+def top_users():
+    conn = sqlite3.connect(Config.DATABASE_PATH)
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+
+    cur.execute("""
+    SELECT * FROM users
+    WHERE role='collaborator'
+    ORDER BY trust_score DESC
+    LIMIT 5
+    """)
+
+    users = [dict(row) for row in cur.fetchall()]
+
+    conn.close()
+    return jsonify(users)
