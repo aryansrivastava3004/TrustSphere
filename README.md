@@ -58,6 +58,14 @@ This project is currently under development and being improved with better struc
 
 ---
 
+## How to Run
+
+```bash
+pip install -r requirements.txt
+python backend/app.py
+```
+
+
 ## Author
 
 Aryan Srivastava (@aryansrivastava3004)
